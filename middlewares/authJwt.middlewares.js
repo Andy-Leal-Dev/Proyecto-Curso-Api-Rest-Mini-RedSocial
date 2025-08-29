@@ -1,24 +1,30 @@
-import jwt from 'jsonwebtoken';
-import User from '../models/user.models.js';
+// Importar función para verificar tokens JWT
+import { verifyToken } from '../utils/tokenmanager.js';
 
-export const verifyToken = async (req, res, next) => {
+// Middleware para verificar autenticación JWT
+export const verifyJwtToken = (req, res, next) => {
+  // Obtener token del header Authorization
+  const token = req.headers.authorization?.split(' ')[1]; // Formato: "Bearer TOKEN"
+
+  // Si no hay token, responder con error 401
+  if (!token) {
+    return res.status(401).json({ message: 'Token no proporcionado' });
+  }
+
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ message: 'Token de acceso requerido' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
-    const user = await User.findById(decoded.id).select('-password');
-    
-    if (!user) {
+    // Verificar y decodificar el token
+    const decoded = verifyToken(token);
+    // Si el token es inválido, responder con error 401
+    if (!decoded) {
       return res.status(401).json({ message: 'Token inválido' });
     }
 
-    req.user = user;
+    // Agregar información del usuario decodificada al objeto request
+    req.user = decoded;
+    // Continuar con el siguiente middleware o controlador
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Token inválido' });
+    // Manejar errores
+    res.status(401).json({ message: 'Token inválido', error: error.message });
   }
 };
